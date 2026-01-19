@@ -54,7 +54,7 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Text="Channels" FontWeight="Bold" VerticalAlignment="Center" Grid.Column="0" />
-                        <Button Content="Add channel" Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0" />
+                        <Button x:Name="AddChannelButton" Content="Add channel" Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0" />
                     </Grid>
 
                     <ListBox x:Name="ChannelsListBox" Margin="4" Grid.Row="1" />

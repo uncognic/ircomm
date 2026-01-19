@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace ircomm
 {
@@ -25,6 +26,7 @@ namespace ircomm
             ConnectButton.Click += ConnectButton_Click;
             SendButton.Click += SendButton_Click;
             ChannelsListBox.MouseDoubleClick += ChannelsListBox_MouseDoubleClick;
+            AddChannelButton.Click += AddChannelButton_Click;
 
             SetStatus("Disconnected.", false);
 
@@ -52,7 +54,7 @@ namespace ircomm
                 AddChatLine($"You joined {channel}");
                 _users.Clear();
                 ConnectButton.Content = "Disconnect";
-                SetStatus($"Joined {channel}", false);
+
             });
 
             _irc.UserJoined += (channel, nick) => Ui(() =>
@@ -240,6 +242,67 @@ namespace ircomm
                 AddChatLine($"Switched to {channel}");
                 _ = _irc.SendRawAsync($"NAMES {channel}");
             }
+        }
+
+        private async void AddChannelButton_Click(object? sender, RoutedEventArgs e)
+        {
+            var input = ShowChannelDialog();
+            if (string.IsNullOrWhiteSpace(input)) return;
+
+            var channel = input.Trim();
+            if (!channel.StartsWith("#") && !channel.StartsWith("&")) channel = "#" + channel;
+
+            await _irc.SendRawAsync($"JOIN {channel}");
+        }
+
+        private string? ShowChannelDialog()
+        {
+            var win = new Window
+            {
+                Title = "Join Channel",
+                Width = 380,
+                Height = 150,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                ResizeMode = ResizeMode.NoResize,
+                Owner = this,
+                ShowInTaskbar = false
+            };
+
+            var panel = new StackPanel { Margin = new Thickness(10) };
+            panel.Children.Add(new TextBlock { Text = "Enter channel name (without leading #):", Margin = new Thickness(0, 0, 0, 8) });
+
+            var textBox = new TextBox { Width = 340 };
+            panel.Children.Add(textBox);
+
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
+            var ok = new Button { Content = "OK", Width = 80, IsDefault = true };
+            var cancel = new Button { Content = "Cancel", Width = 80, IsCancel = true, Margin = new Thickness(8, 0, 0, 0) };
+
+            ok.Click += (_, __) =>
+            {
+                if (string.IsNullOrWhiteSpace(textBox.Text))
+                {
+                    MessageBox.Show(win, "Please enter a channel name.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                win.DialogResult = true;
+                win.Close();
+            };
+
+            cancel.Click += (_, __) =>
+            {
+                win.DialogResult = false;
+                win.Close();
+            };
+
+            buttons.Children.Add(ok);
+            buttons.Children.Add(cancel);
+            panel.Children.Add(buttons);
+
+            win.Content = panel;
+
+            var result = win.ShowDialog();
+            return result == true ? textBox.Text : null;
         }
 
         private void AddChatLine(string line)
