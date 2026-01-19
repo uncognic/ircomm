@@ -215,6 +215,13 @@ namespace ircomm
                             MessageTextBox.Clear();
                             return;
                         }
+                    case "quit":
+                        {
+                            await _irc.SendRawAsync("QUIT :Client exiting");
+                            MessageTextBox.Clear();
+                            AddChatLine("Quit successful.");
+                            return;
+                        }
                     default:
                         AddChatLine($"Unknown command: {cmd}");
                         return;
