@@ -2,6 +2,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -37,6 +38,10 @@ namespace ircomm
             AddChannelButton.Click += AddChannelButton_Click;
 
             SetStatus("Disconnected.", false);
+
+
+            var loaded = ProfileStore.LoadProfiles();
+            foreach (var p in loaded) _profiles.Add(p);
 
             void Ui(Action a) => Dispatcher.Invoke(a);
 
@@ -105,7 +110,6 @@ namespace ircomm
 
         private void ProfileComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
-
             if (ProfileComboBox.SelectedItem is Profile profile)
                 ConnectButton.ToolTip = profile.Name;
             else
@@ -181,7 +185,6 @@ namespace ircomm
                 await ConnectToAsync(profile.Server ?? string.Empty, profile.Port, profile.Username ?? string.Empty);
                 return;
             }
-
 
             var win = new DirectConnectionWindow { Owner = this };
             if (win.ShowDialog() == true && win.ResultProfile != null)
@@ -404,18 +407,36 @@ namespace ircomm
             if (win.ShowDialog() == true && win.CreatedProfile != null)
             {
                 _profiles.Add(win.CreatedProfile);
+                ProfileStore.SaveProfiles(_profiles);
                 MessageBox.Show(this, $"Profile '{win.CreatedProfile.Name}' added.", "Profiles", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
         private void EditProfileMenuItem_Click(object sender, RoutedEventArgs e)
         {
+            if (ProfileComboBox.SelectedItem is not Profile selected) return;
 
+            var win = new AddProfileWindow(selected) { Owner = this };
+            if (win.ShowDialog() == true && win.CreatedProfile != null)
+            {
+                var idx = _profiles.IndexOf(selected);
+                if (idx >= 0)
+                {
+                    _profiles[idx] = win.CreatedProfile;
+                    ProfileStore.SaveProfiles(_profiles);
+                }
+            }
         }
 
         private void DeleteProfileMenuItem_Click(object sender, RoutedEventArgs e)
         {
+            if (ProfileComboBox.SelectedItem is not Profile selected) return;
 
+            var res = MessageBox.Show(this, $"Delete profile '{selected.Name}'?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (res != MessageBoxResult.Yes) return;
+
+            _profiles.Remove(selected);
+            ProfileStore.SaveProfiles(_profiles);
         }
 
         private void DisconnectMenuItem_Click(object sender, RoutedEventArgs e)
