@@ -14,6 +14,10 @@
                 <MenuItem x:Name="DisconnectMenuItem" Header="_Disconnect" Click="DisconnectMenuItem_Click" />
                 <MenuItem x:Name="ExitMenuItem" Header="_Exit" Click="ExitMenuItem_Click" />
             </MenuItem>
+            <MenuItem Header="_Chat">
+                <MenuItem x:Name="ExportChatMenuItem" Header="_Export Chat" Click="ExportChatMenuItem_Click"/>
+                <MenuItem x:Name="ClearChatMenuItem" Header="_Clear Chat" Click="ClearChatMenuItem_Click"/>
+            </MenuItem>
             <MenuItem Header="_Profiles">
                 <MenuItem x:Name="AddProfileMenuItem" Header="_Add Profile" Click="AddProfileMenuItem_Click" />
                 <MenuItem x:Name="EditProfileMenuItem" Header="_Edit Profile" Click="EditProfileMenuItem_Click" />

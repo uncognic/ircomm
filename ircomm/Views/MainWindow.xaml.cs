@@ -2,10 +2,12 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Win32;
 
 namespace ircomm
 {
@@ -399,6 +401,45 @@ namespace ircomm
         {
             var win = new PreferencesWindow { Owner = this };
             win.ShowDialog();
+        }
+
+        private void ExportChatMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (_chatLines.Count == 0)
+            {
+                MessageBox.Show(this, "There are no chat lines to export.", "Export Chat", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var dlg = new SaveFileDialog
+            {
+                Title = "Export Chat",
+                Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
+                FileName = "chat.txt",
+                DefaultExt = "txt"
+            };
+
+            if (dlg.ShowDialog(this) != true) return;
+
+            try
+            {
+                File.WriteAllLines(dlg.FileName, _chatLines);
+                MessageBox.Show(this, $"Chat exported to {dlg.FileName}.", "Export Chat", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Failed to export chat: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ClearChatMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (_chatLines.Count == 0) return;
+
+            var res = MessageBox.Show(this, "Clear chat history?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (res != MessageBoxResult.Yes) return;
+
+            _chatLines.Clear();
         }
 
         private void AddProfileMenuItem_Click(object sender, RoutedEventArgs e)
