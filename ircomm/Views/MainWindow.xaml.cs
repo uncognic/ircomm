@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
+using System.Collections.Generic;
 
 namespace ircomm
 {
@@ -70,6 +71,16 @@ namespace ircomm
                 _users.Clear();
                 ConnectButton.Content = "Disconnect";
 
+    
+                if (ProfileComboBox.SelectedItem is Profile prof)
+                {
+                    prof.Channels ??= new List<string>();
+                    if (!prof.Channels.Contains(channel))
+                    {
+                        prof.Channels.Add(channel);
+                        ProfileStore.SaveProfiles(_profiles);
+                    }
+                }
             });
 
             _irc.UserJoined += (channel, nick) => Ui(() =>
@@ -94,11 +105,30 @@ namespace ircomm
                 AddChatLine($"{oldNick} is now known as {newNick}");
             });
 
-            _irc.Connected += () => Ui(() =>
+            _irc.Connected += () => Ui(async () =>
             {
                 ConnectButton.Content = "Disconnect";
                 AddChatLine("Connected.");
                 SetStatus("Connected.", false);
+
+   
+                if (ProfileComboBox.SelectedItem is Profile prof)
+                {
+                    if (prof.Channels != null && prof.Channels.Count > 0)
+                    {
+                        foreach (var ch in prof.Channels)
+                        {
+                            try
+                            {
+                                await _irc.SendRawAsync($"JOIN {ch}");
+                            }
+                            catch
+                            {
+                                Debug.WriteLine("Failed to join channels");
+                            }
+                        }
+                    }
+                }
             });
 
             _irc.Disconnected += () => Ui(() =>
@@ -113,7 +143,20 @@ namespace ircomm
         private void ProfileComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
             if (ProfileComboBox.SelectedItem is Profile profile)
+            {
                 ConnectButton.ToolTip = profile.Name;
+
+         
+                _channels.Clear();
+                if (profile.Channels != null)
+                {
+                    foreach (var ch in profile.Channels)
+                    {
+                        if (!_channels.Contains(ch))
+                            _channels.Add(ch);
+                    }
+                }
+            }
             else
                 ConnectButton.ToolTip = "Use a profile or click Direct Connection";
         }
