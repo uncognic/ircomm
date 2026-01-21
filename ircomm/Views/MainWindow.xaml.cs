@@ -416,14 +416,19 @@ namespace ircomm
         {
             if (ProfileComboBox.SelectedItem is not Profile selected) return;
 
-            var win = new AddProfileWindow(selected) { Owner = this };
-            if (win.ShowDialog() == true && win.CreatedProfile != null)
+            var win = new EditProfileWindow(selected) { Owner = this };
+            if (win.ShowDialog() == true && win.EditedProfile != null)
             {
                 var idx = _profiles.IndexOf(selected);
                 if (idx >= 0)
                 {
-                    _profiles[idx] = win.CreatedProfile;
+
+                    _profiles[idx] = win.EditedProfile;
                     ProfileStore.SaveProfiles(_profiles);
+
+                    ProfileComboBox.SelectedItem = win.EditedProfile;
+
+                    MessageBox.Show(this, $"Profile '{win.EditedProfile.Name}' updated.", "Profiles", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
         }
