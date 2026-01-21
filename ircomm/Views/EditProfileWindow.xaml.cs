@@ -4,13 +4,25 @@ using ircomm.Services;
 
 namespace ircomm
 {
-    public partial class AddProfileWindow : Window
+    public partial class EditProfileWindow : Window
     {
-        public Profile? CreatedProfile { get; private set; }
+        public Profile? EditedProfile { get; private set; }
 
-        public AddProfileWindow()
+        public EditProfileWindow()
         {
             InitializeComponent();
+        }
+
+        public EditProfileWindow(Profile? existing) : this()
+        {
+            if (existing is null) return;
+
+            Title = "Edit Profile";
+
+            NameTextBox.Text = existing.Name ?? string.Empty;
+            ServerTextBox.Text = existing.Server ?? string.Empty;
+            PortTextBox.Text = existing.Port.ToString();
+            UsernameTextBox.Text = existing.Username ?? string.Empty;
         }
 
         private void OkButton_Click(object sender, RoutedEventArgs e)
@@ -41,7 +53,7 @@ namespace ircomm
                 return;
             }
 
-            CreatedProfile = new Profile
+            EditedProfile = new Profile
             {
                 Name = name,
                 Server = server,
