@@ -128,6 +128,20 @@ namespace ircomm
                             }
                         }
                     }
+
+                    if (!string.IsNullOrEmpty(prof.Password))
+                    {
+                        try
+                        {
+                            var auth = new NickServAuthService(_irc);
+                            var ok = await auth.IdentifyAsync(prof.Password, TimeSpan.FromSeconds(8));
+                            AddChatLine(ok ? "NickServ: identified successfully." : "NickServ: identify failed or timed out.");
+                        }
+                        catch
+                        {
+                            AddChatLine("NickServ: identify attempt failed.");
+                        }
+                    }
                 }
             });
 
@@ -166,11 +180,12 @@ namespace ircomm
             var win = new DirectConnectionWindow { Owner = this };
             if (win.ShowDialog() == true && win.ResultProfile != null)
             {
-                await ConnectToAsync(win.ResultProfile.Server ?? string.Empty, win.ResultProfile.Port, win.ResultProfile.Username ?? string.Empty);
+                await ConnectToAsync(win.ResultProfile);
             }
         }
 
-        private async Task ConnectToAsync(string server, int port, string nick)
+
+        private async Task ConnectToAsync(Profile profile)
         {
             if (_irc.IsConnected)
             {
@@ -178,32 +193,50 @@ namespace ircomm
                 return;
             }
 
-            if (string.IsNullOrEmpty(server))
+            if (profile == null || string.IsNullOrEmpty(profile.Server))
             {
                 MessageBox.Show("Invalid server.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-            if (port <= 0)
+            if (profile.Port <= 0)
             {
                 MessageBox.Show("Invalid port.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-            if (string.IsNullOrEmpty(nick))
+            if (string.IsNullOrEmpty(profile.Username))
             {
                 MessageBox.Show("Invalid username.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-            _currentNick = nick;
+            _currentNick = profile.Username;
+
+            Profile? selectedProfile = ProfileComboBox.SelectedItem as Profile;
+            bool willHandleAuthInConnected = ReferenceEquals(selectedProfile, profile);
 
             try
             {
                 ConnectButton.IsEnabled = false;
-                SetStatus($"Connecting to {server}:{port}...", true);
-                AddChatLine($"Connecting to {server}:{port}...");
-                await _irc.ConnectAsync(server, port, nick);
+                SetStatus($"Connecting to {profile.Server}:{profile.Port}...", true);
+                AddChatLine($"Connecting to {profile.Server}:{profile.Port}...");
+                await _irc.ConnectAsync(profile.Server ?? string.Empty, profile.Port, profile.Username ?? string.Empty);
+
+
+                if (!willHandleAuthInConnected && !string.IsNullOrEmpty(profile.Password))
+                {
+                    try
+                    {
+                        var auth = new NickServAuthService(_irc);
+                        var ok = await auth.IdentifyAsync(profile.Password, TimeSpan.FromSeconds(8));
+                        AddChatLine(ok ? "NickServ: identified successfully." : "NickServ: identify failed or timed out.");
+                    }
+                    catch
+                    {
+                        AddChatLine("NickServ: identify attempt failed.");
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -227,14 +260,14 @@ namespace ircomm
 
             if (ProfileComboBox.SelectedItem is Profile profile)
             {
-                await ConnectToAsync(profile.Server ?? string.Empty, profile.Port, profile.Username ?? string.Empty);
+                await ConnectToAsync(profile);
                 return;
             }
 
             var win = new DirectConnectionWindow { Owner = this };
             if (win.ShowDialog() == true && win.ResultProfile != null)
             {
-                await ConnectToAsync(win.ResultProfile.Server ?? string.Empty, win.ResultProfile.Port, win.ResultProfile.Username ?? string.Empty);
+                await ConnectToAsync(win.ResultProfile);
             }
         }
 
