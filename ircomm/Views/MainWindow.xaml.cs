@@ -23,6 +23,9 @@ namespace ircomm
 
         private string _currentNick = string.Empty;
 
+
+        private Settings _settings = new();
+
         public MainWindow()
         {
             InitializeComponent();
@@ -45,6 +48,13 @@ namespace ircomm
 
             var loaded = ProfileStore.LoadProfiles();
             foreach (var p in loaded) _profiles.Add(p);
+
+      
+            _settings = SettingsStore.LoadSettings() ?? new Settings();
+            if (string.IsNullOrWhiteSpace(_settings.AutoSaveFile))
+            {
+                _settings.AutoSaveFile = Path.Combine(AppContext.BaseDirectory, "chat.txt");
+            }
 
             void Ui(Action a) => Dispatcher.Invoke(a);
 
@@ -71,7 +81,7 @@ namespace ircomm
                 _users.Clear();
                 ConnectButton.Content = "Disconnect";
 
-    
+
                 if (ProfileComboBox.SelectedItem is Profile prof)
                 {
                     prof.Channels ??= new List<string>();
@@ -111,7 +121,7 @@ namespace ircomm
                 AddChatLine("Connected.");
                 SetStatus("Connected.", false);
 
-   
+
                 if (ProfileComboBox.SelectedItem is Profile prof)
                 {
                     if (prof.Channels != null && prof.Channels.Count > 0)
@@ -160,7 +170,7 @@ namespace ircomm
             {
                 ConnectButton.ToolTip = profile.Name;
 
-         
+
                 _channels.Clear();
                 if (profile.Channels != null)
                 {
@@ -449,6 +459,24 @@ namespace ircomm
             _chatLines.Add(entry);
             if (ChatListBox.Items.Count > 0)
                 ChatListBox.ScrollIntoView(ChatListBox.Items[ChatListBox.Items.Count - 1]);
+
+   
+            try
+            {
+                if (_settings?.AutoSaveChat == true)
+                {
+                    var path = string.IsNullOrWhiteSpace(_settings.AutoSaveFile) ? Path.Combine(AppContext.BaseDirectory, "chat.txt") : _settings.AutoSaveFile;
+     
+                    var dir = Path.GetDirectoryName(path);
+                    if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+                    File.AppendAllText(path, entry + Environment.NewLine);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to auto-save chat line: {ex.Message}");
+            }
         }
 
         private void SetStatus(string text, bool busy = false)
@@ -480,6 +508,13 @@ namespace ircomm
         {
             var win = new PreferencesWindow { Owner = this };
             win.ShowDialog();
+
+
+            _settings = SettingsStore.LoadSettings() ?? new Settings();
+            if (string.IsNullOrWhiteSpace(_settings.AutoSaveFile))
+            {
+                _settings.AutoSaveFile = Path.Combine(AppContext.BaseDirectory, "chat.txt");
+            }
         }
 
         private void ExportChatMenuItem_Click(object sender, RoutedEventArgs e)
