@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ircomm.Services;
+using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -14,6 +15,9 @@ namespace ircomm
         private readonly ObservableCollection<string> _channels = new();
         private readonly ObservableCollection<string> _chatLines = new();
         private readonly ObservableCollection<string> _users = new();
+        private readonly ObservableCollection<Profile> _profiles = new();
+
+        private string _currentNick = string.Empty;
 
         public MainWindow()
         {
@@ -22,6 +26,10 @@ namespace ircomm
             ChannelsListBox.ItemsSource = _channels;
             ChatListBox.ItemsSource = _chatLines;
             UsersListBox.ItemsSource = _users;
+
+            ProfileComboBox.ItemsSource = _profiles;
+            ProfileComboBox.SelectionChanged += ProfileComboBox_SelectionChanged;
+            DirectConnectionButton.Click += DirectConnectionButton_Click;
 
             ConnectButton.Click += ConnectButton_Click;
             SendButton.Click += SendButton_Click;
@@ -95,7 +103,25 @@ namespace ircomm
             });
         }
 
-        private async void ConnectButton_Click(object? sender, RoutedEventArgs e)
+        private void ProfileComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+
+            if (ProfileComboBox.SelectedItem is Profile profile)
+                ConnectButton.ToolTip = profile.Name;
+            else
+                ConnectButton.ToolTip = "Use a profile or click Direct Connection";
+        }
+
+        private async void DirectConnectionButton_Click(object? sender, RoutedEventArgs e)
+        {
+            var win = new DirectConnectionWindow { Owner = this };
+            if (win.ShowDialog() == true && win.ResultProfile != null)
+            {
+                await ConnectToAsync(win.ResultProfile.Server ?? string.Empty, win.ResultProfile.Port, win.ResultProfile.Username ?? string.Empty);
+            }
+        }
+
+        private async Task ConnectToAsync(string server, int port, string nick)
         {
             if (_irc.IsConnected)
             {
@@ -103,25 +129,25 @@ namespace ircomm
                 return;
             }
 
-            var server = ServerTextBox.Text.Trim();
             if (string.IsNullOrEmpty(server))
             {
                 MessageBox.Show("Invalid server.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-            if (!int.TryParse(PortTextBox.Text.Trim(), out var port))
+            if (port <= 0)
             {
                 MessageBox.Show("Invalid port.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-            var nick = UsernameTextBox.Text.Trim();
             if (string.IsNullOrEmpty(nick))
             {
                 MessageBox.Show("Invalid username.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
+
+            _currentNick = nick;
 
             try
             {
@@ -139,6 +165,28 @@ namespace ircomm
             finally
             {
                 ConnectButton.IsEnabled = true;
+            }
+        }
+
+        private async void ConnectButton_Click(object? sender, RoutedEventArgs e)
+        {
+            if (_irc.IsConnected)
+            {
+                await DisconnectAsync();
+                return;
+            }
+
+            if (ProfileComboBox.SelectedItem is Profile profile)
+            {
+                await ConnectToAsync(profile.Server ?? string.Empty, profile.Port, profile.Username ?? string.Empty);
+                return;
+            }
+
+
+            var win = new DirectConnectionWindow { Owner = this };
+            if (win.ShowDialog() == true && win.ResultProfile != null)
+            {
+                await ConnectToAsync(win.ResultProfile.Server ?? string.Empty, win.ResultProfile.Port, win.ResultProfile.Username ?? string.Empty);
             }
         }
 
@@ -236,7 +284,7 @@ namespace ircomm
             }
 
             await _irc.SendRawAsync($"PRIVMSG {targetChannel} :{text}");
-            AddChatLine($"[{targetChannel}] <{UsernameTextBox.Text.Trim()}> {text}");
+            AddChatLine($"[{targetChannel}] <{_currentNick}> {text}");
             MessageTextBox.Clear();
         }
 
@@ -333,5 +381,47 @@ namespace ircomm
             base.OnClosed(e);
             _ = DisconnectAsync();
         }
+
+        private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
+        }
+
+        private void AboutMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show(this, "IRComm\nVersion 1.0", "About IRComm", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void PreferencesMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var win = new PreferencesWindow { Owner = this };
+            win.ShowDialog();
+        }
+
+        private void AddProfileMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var win = new AddProfileWindow { Owner = this };
+            if (win.ShowDialog() == true && win.CreatedProfile != null)
+            {
+                _profiles.Add(win.CreatedProfile);
+                MessageBox.Show(this, $"Profile '{win.CreatedProfile.Name}' added.", "Profiles", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private void EditProfileMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void DeleteProfileMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void DisconnectMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            DisconnectAsync();
+        }
+
     }
 }

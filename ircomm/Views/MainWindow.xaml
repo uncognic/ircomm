@@ -5,8 +5,25 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ircomm"
         mc:Ignorable="d"
-        Title="IRComm" Height="450" Width="800">
+        Title="ircomm IRC Client" Height="450" Width="800">
     <DockPanel LastChildFill="True">
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem x:Name="PreferencesMenuItem" Header="_Preferences" Click="PreferencesMenuItem_Click" />
+                <Separator />
+                <MenuItem x:Name="DisconnectMenuItem" Header="_Disconnect" Click="DisconnectMenuItem_Click" />
+                <MenuItem x:Name="ExitMenuItem" Header="_Exit" Click="ExitMenuItem_Click" />
+            </MenuItem>
+            <MenuItem Header="_Profiles">
+                <MenuItem x:Name="AddProfileMenuItem" Header="_Add Profile" Click="AddProfileMenuItem_Click" />
+                <MenuItem x:Name="EditProfileMenuItem" Header="_Edit Profile" Click="EditProfileMenuItem_Click" />
+                <MenuItem x:Name="DeleteProfileMenuItem" Header="_Delete Profile" Click="DeleteProfileMenuItem_Click" />
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem x:Name="AboutMenuItem" Header="_About" Click="AboutMenuItem_Click" />
+            </MenuItem>
+        </Menu>
+
         <StatusBar DockPanel.Dock="Bottom">
             <StatusBarItem>
                 <TextBlock x:Name="StatusTextBlock" Text="Disconnected." />
@@ -23,15 +40,20 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,8">
-                <TextBlock Text="Server:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                <TextBox x:Name="ServerTextBox" Width="220" Margin="0,0,12,0" />
-                <TextBlock Text="Port:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                <TextBox x:Name="PortTextBox" Width="60" Text="6667" Margin="0,0,12,0" />
-                <TextBlock Text="Username:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                <TextBox x:Name="UsernameTextBox" Width="160" Margin="0,0,12,0" />
-                <Button x:Name="ConnectButton" Content="Connect" Width="90" />
-            </StackPanel>
+            <Grid Grid.Row="0" VerticalAlignment="Center" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="Profile:" VerticalAlignment="Center" Margin="0,0,6,0" Grid.Column="0" />
+                <ComboBox x:Name="ProfileComboBox" Width="220" Margin="0,0,12,0" DisplayMemberPath="Name" Grid.Column="1" />
+                <Button x:Name="ConnectButton" Content="Connect" Width="90" Grid.Column="2" />
+                <Button x:Name="DirectConnectionButton" Content="Direct Connection..." Width="130" Grid.Column="4" />
+            </Grid>
 
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>

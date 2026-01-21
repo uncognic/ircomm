@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ircomm
+namespace ircomm.Services
 {
 
     public class Client : IDisposable
@@ -67,10 +67,10 @@ namespace ircomm
                 {
                     var ssl = new SslStream(netStream, false, (sender, certificate, chain, errors) =>
                     {
- 
+
                         return errors == System.Net.Security.SslPolicyErrors.None;
                     });
- 
+
                     await ssl.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
                     {
                         TargetHost = server,
@@ -89,7 +89,7 @@ namespace ircomm
 
                 _listenTask = Task.Run(() => ListenLoopAsync(_cts.Token));
 
-    
+
                 await SendRawAsync($"NICK {_nick}").ConfigureAwait(false);
                 await SendRawAsync($"USER {_nick} 0 * :{_nick}").ConfigureAwait(false);
 
@@ -215,7 +215,7 @@ namespace ircomm
                     var chunk = Encoding.UTF8.GetString(_readBuffer, 0, read);
                     _receiveBuffer.Append(chunk);
 
-     
+
                     while (true)
                     {
                         var line = ExtractLineFromReceiveBuffer();
@@ -240,7 +240,7 @@ namespace ircomm
             }
         }
 
-  
+
         private string? ExtractLineFromReceiveBuffer()
         {
             for (int i = 0; i < _receiveBuffer.Length; i++)
@@ -266,7 +266,7 @@ namespace ircomm
             if (line.StartsWith("PING ", StringComparison.OrdinalIgnoreCase))
             {
                 var token = line.Substring(5).Trim();
-  
+
                 _ = SendRawAsync($"PONG {token}");
                 return;
             }
