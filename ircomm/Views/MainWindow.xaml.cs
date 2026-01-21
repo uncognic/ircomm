@@ -443,7 +443,10 @@ namespace ircomm
 
         private void AddChatLine(string line)
         {
-            _chatLines.Add(line);
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            var entry = $"[{timestamp}] {line}";
+
+            _chatLines.Add(entry);
             if (ChatListBox.Items.Count > 0)
                 ChatListBox.ScrollIntoView(ChatListBox.Items[ChatListBox.Items.Count - 1]);
         }
