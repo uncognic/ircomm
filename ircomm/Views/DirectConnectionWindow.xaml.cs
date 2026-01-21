@@ -18,6 +18,7 @@ namespace ircomm
             var server = ServerTextBox.Text?.Trim();
             var portText = PortTextBox.Text?.Trim();
             var username = UsernameTextBox.Text?.Trim();
+            var password = PasswordBox.Password?.Trim();
 
             if (string.IsNullOrEmpty(server))
             {
@@ -42,6 +43,7 @@ namespace ircomm
                 Server = server,
                 Port = port,
                 Username = username,
+                Password = password,
                 Name = $"Direct: {server}:{port}"
             };
 

@@ -13,7 +13,8 @@ namespace ircomm.Services
 
         private static string GetFilePath()
         {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ircomm");
+     
+            var dir = AppContext.BaseDirectory;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
             return Path.Combine(dir, FileName);
         }

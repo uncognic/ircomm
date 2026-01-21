@@ -27,6 +27,7 @@ namespace ircomm
             ServerTextBox.Text = existing.Server ?? string.Empty;
             PortTextBox.Text = existing.Port.ToString();
             UsernameTextBox.Text = existing.Username ?? string.Empty;
+            PasswordBox.Password = existing.Password ?? string.Empty;
         }
 
         private void OkButton_Click(object sender, RoutedEventArgs e)
@@ -35,6 +36,7 @@ namespace ircomm
             var server = ServerTextBox.Text?.Trim();
             var portText = PortTextBox.Text?.Trim();
             var username = UsernameTextBox.Text?.Trim();
+            var password = PasswordBox.Password?.Trim();
 
             if (string.IsNullOrEmpty(name))
             {
@@ -64,6 +66,7 @@ namespace ircomm
                 Server = server,
                 Port = port,
                 Username = username,
+                Password = password,
                 Channels = _existingProfile != null && _existingProfile.Channels != null ? new List<string>(_existingProfile.Channels) : new List<string>()
             };
 

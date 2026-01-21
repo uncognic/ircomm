@@ -14,6 +14,10 @@
             <TextBlock Text="Username:" Width="80" VerticalAlignment="Center"/>
             <TextBox x:Name="UsernameTextBox" Width="280"/>
         </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <TextBlock Text="Password:" Width="80" VerticalAlignment="Center"/>
+            <PasswordBox x:Name="PasswordBox" Width="280"/>
+        </StackPanel>
 
         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
             <TextBlock Text="Server:" Width="80" VerticalAlignment="Center"/>

@@ -19,6 +19,7 @@ namespace ircomm
             var server = ServerTextBox.Text?.Trim();
             var portText = PortTextBox.Text?.Trim();
             var username = UsernameTextBox.Text?.Trim();
+            var password = PasswordBox.Password?.Trim();
 
             if (string.IsNullOrEmpty(name))
             {
@@ -46,7 +47,8 @@ namespace ircomm
                 Name = name,
                 Server = server,
                 Port = port,
-                Username = username
+                Username = username,
+                Password = password
             };
 
             DialogResult = true;

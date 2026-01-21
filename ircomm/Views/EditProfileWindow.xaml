@@ -14,6 +14,10 @@
             <TextBlock Text="Username:" Width="80" VerticalAlignment="Center"/>
             <TextBox x:Name="UsernameTextBox" Width="280"/>
         </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <TextBlock Text="Password:" Width="80" VerticalAlignment="Center"/>
+            <PasswordBox x:Name="PasswordBox" Width="280"/>
+        </StackPanel>
 
         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
             <TextBlock Text="Server:" Width="80" VerticalAlignment="Center"/>
@@ -25,7 +29,7 @@
             <TextBox x:Name="PortTextBox" Width="100" Text="6667"/>
         </StackPanel>
 
-      
+        
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button x:Name="OkButton" Content="OK" Width="90" IsDefault="True" Click="OkButton_Click"/>
