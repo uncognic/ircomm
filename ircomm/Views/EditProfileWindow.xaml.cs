@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using ircomm.Services;
 
@@ -7,6 +8,7 @@ namespace ircomm
     public partial class EditProfileWindow : Window
     {
         public Profile? EditedProfile { get; private set; }
+        private readonly Profile? _existingProfile;
 
         public EditProfileWindow()
         {
@@ -16,6 +18,8 @@ namespace ircomm
         public EditProfileWindow(Profile? existing) : this()
         {
             if (existing is null) return;
+
+            _existingProfile = existing;
 
             Title = "Edit Profile";
 
@@ -53,12 +57,14 @@ namespace ircomm
                 return;
             }
 
+    
             EditedProfile = new Profile
             {
                 Name = name,
                 Server = server,
                 Port = port,
-                Username = username
+                Username = username,
+                Channels = _existingProfile != null && _existingProfile.Channels != null ? new List<string>(_existingProfile.Channels) : new List<string>()
             };
 
             DialogResult = true;
