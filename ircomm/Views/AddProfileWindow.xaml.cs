@@ -1,15 +1,26 @@
 using System;
 using System.Windows;
+using ircomm.Services;
 
 namespace ircomm
 {
     public partial class AddProfileWindow : Window
     {
-        public Services.Profile? CreatedProfile { get; private set; }
+        public Profile? CreatedProfile { get; private set; }
 
         public AddProfileWindow()
         {
             InitializeComponent();
+        }
+
+
+        public AddProfileWindow(Profile? existing) : this()
+        {
+            if (existing is null) return;
+            NameTextBox.Text = existing.Name ?? string.Empty;
+            ServerTextBox.Text = existing.Server ?? string.Empty;
+            PortTextBox.Text = existing.Port.ToString();
+            UsernameTextBox.Text = existing.Username ?? string.Empty;
         }
 
         private void OkButton_Click(object sender, RoutedEventArgs e)
@@ -40,7 +51,7 @@ namespace ircomm
                 return;
             }
 
-            CreatedProfile = new Services.Profile
+            CreatedProfile = new Profile
             {
                 Name = name,
                 Server = server,
