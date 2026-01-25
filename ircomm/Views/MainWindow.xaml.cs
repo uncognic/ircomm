@@ -49,7 +49,7 @@ namespace ircomm
             var loaded = ProfileStore.LoadProfiles();
             foreach (var p in loaded) _profiles.Add(p);
 
-      
+
             _settings = SettingsStore.LoadSettings() ?? new Settings();
             if (string.IsNullOrWhiteSpace(_settings.AutoSaveFile))
             {
@@ -460,13 +460,13 @@ namespace ircomm
             if (ChatListBox.Items.Count > 0)
                 ChatListBox.ScrollIntoView(ChatListBox.Items[ChatListBox.Items.Count - 1]);
 
-   
+
             try
             {
                 if (_settings?.AutoSaveChat == true)
                 {
                     var path = string.IsNullOrWhiteSpace(_settings.AutoSaveFile) ? Path.Combine(AppContext.BaseDirectory, "chat.txt") : _settings.AutoSaveFile;
-     
+
                     var dir = Path.GetDirectoryName(path);
                     if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
@@ -501,7 +501,8 @@ namespace ircomm
 
         private void AboutMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show(this, "IRComm\nVersion 1.0", "About IRComm", MessageBoxButton.OK, MessageBoxImage.Information);
+            var win = new AboutWindow { Owner = this };
+            win.ShowDialog();
         }
 
         private void PreferencesMenuItem_Click(object sender, RoutedEventArgs e)
