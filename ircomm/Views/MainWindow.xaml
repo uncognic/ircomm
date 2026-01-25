@@ -101,7 +101,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Text="Users" FontWeight="Bold" Margin="4" Grid.Row="0" />
+                    <TextBlock x:Name="UsersTitle" Text="Users" FontWeight="Bold" Margin="4" Grid.Row="0" />
                     <ListBox x:Name="UsersListBox" Margin="4" Grid.Row="1" />
                 </Grid>
             </Grid>
