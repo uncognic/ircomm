@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace ircomm
 {
@@ -24,6 +25,13 @@ namespace ircomm
         private string _currentNick = string.Empty;
 
 
+        private readonly Dictionary<string, List<string>> _messageStore = new(StringComparer.OrdinalIgnoreCase);
+
+
+        private readonly Dictionary<string, HashSet<string>> _userStore = new(StringComparer.OrdinalIgnoreCase);
+
+        private string? _currentServerPseudo;
+
         private Settings _settings = new();
 
         public MainWindow()
@@ -36,6 +44,7 @@ namespace ircomm
 
             ProfileComboBox.ItemsSource = _profiles;
             ProfileComboBox.SelectionChanged += ProfileComboBox_SelectionChanged;
+            ChannelsListBox.SelectionChanged += ChannelsListBox_SelectionChanged;
             DirectConnectionButton.Click += DirectConnectionButton_Click;
 
             ConnectButton.Click += ConnectButton_Click;
@@ -45,10 +54,8 @@ namespace ircomm
 
             SetStatus("Disconnected.", false);
 
-
             var loaded = ProfileStore.LoadProfiles();
             foreach (var p in loaded) _profiles.Add(p);
-
 
             _settings = SettingsStore.LoadSettings() ?? new Settings();
             if (string.IsNullOrWhiteSpace(_settings.AutoSaveFile))
@@ -58,16 +65,31 @@ namespace ircomm
 
             void Ui(Action a) => Dispatcher.Invoke(a);
 
-            _irc.ChatLine += line => Ui(() => AddChatLine(line));
 
-            _irc.NamesReceived += names =>
+            _irc.ChatLine += line => Ui(() => RouteIncomingLine(line));
+
+
+            _irc.NamesReceived += (channel, names) =>
             {
-                if (names is null) return;
+                if (string.IsNullOrWhiteSpace(channel)) return;
                 Ui(() =>
                 {
-                    foreach (var n in names)
-                        if (!_users.Contains(n))
+                    EnsureUserStore(channel);
+                    var set = _userStore[channel];
+                    set.Clear();
+                    if (names != null)
+                    {
+                        foreach (var n in names)
+                            set.Add(n);
+                    }
+
+
+                    if (string.Equals(ChannelTitle.Text, channel, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _users.Clear();
+                        foreach (var n in set.OrderBy(x => x))
                             _users.Add(n);
+                    }
                 });
             };
 
@@ -76,11 +98,13 @@ namespace ircomm
                 if (!_channels.Contains(channel))
                     _channels.Add(channel);
 
-                ChannelTitle.Text = channel;
-                AddChatLine($"You joined {channel}");
-                _users.Clear();
-                ConnectButton.Content = "Disconnect";
+                EnsureMessageStore(channel);
+                EnsureUserStore(channel);
 
+                AddChatLine($"You joined {channel}", channel);
+
+
+                SwitchToChannel(channel);
 
                 if (ProfileComboBox.SelectedItem is Profile prof)
                 {
@@ -95,23 +119,60 @@ namespace ircomm
 
             _irc.UserJoined += (channel, nick) => Ui(() =>
             {
-                if (!_users.Contains(nick)) _users.Add(nick);
-                AddChatLine($"{nick} joined {channel}");
+                if (string.IsNullOrWhiteSpace(channel) || string.IsNullOrWhiteSpace(nick)) return;
+
+                EnsureUserStore(channel);
+                var set = _userStore[channel];
+                var added = set.Add(nick);
+
+                if (string.Equals(ChannelTitle.Text, channel, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (added && !_users.Contains(nick))
+                        _users.Add(nick);
+                }
+
+                AddChatLine($"{nick} joined {channel}", channel);
             });
 
             _irc.UserLeft += (channel, nick) => Ui(() =>
             {
-                if (_users.Contains(nick)) _users.Remove(nick);
-                AddChatLine($"{nick} left {channel}");
+                if (string.IsNullOrWhiteSpace(channel) || string.IsNullOrWhiteSpace(nick)) return;
+
+                EnsureUserStore(channel);
+                var set = _userStore[channel];
+                var removed = set.Remove(nick);
+
+                if (string.Equals(ChannelTitle.Text, channel, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (removed && _users.Contains(nick))
+                        _users.Remove(nick);
+                }
+
+                AddChatLine($"{nick} left {channel}", channel);
             });
 
             _irc.NickChanged += (oldNick, newNick) => Ui(() =>
             {
-                if (_users.Contains(oldNick))
+
+                if (!string.IsNullOrWhiteSpace(oldNick) && !string.IsNullOrWhiteSpace(newNick))
                 {
-                    _users.Remove(oldNick);
-                    if (!_users.Contains(newNick)) _users.Add(newNick);
+                    foreach (var kv in _userStore)
+                    {
+                        if (kv.Value.Remove(oldNick))
+                        {
+                            kv.Value.Add(newNick);
+                        }
+                    }
+
+
+                    if (_users.Contains(oldNick))
+                    {
+                        _users.Remove(oldNick);
+                        if (!_users.Contains(newNick)) _users.Add(newNick);
+                    }
                 }
+
+
                 AddChatLine($"{oldNick} is now known as {newNick}");
             });
 
@@ -119,8 +180,18 @@ namespace ircomm
             {
                 ConnectButton.Content = "Disconnect";
                 AddChatLine("Connected.");
+
                 SetStatus("Connected.", false);
 
+                if (!string.IsNullOrEmpty(_currentServerPseudo))
+                {
+                    if (!_channels.Contains(_currentServerPseudo))
+                        _channels.Insert(0, _currentServerPseudo);
+
+                    EnsureMessageStore(_currentServerPseudo);
+
+                    SwitchToChannel(_currentServerPseudo);
+                }
 
                 if (ProfileComboBox.SelectedItem is Profile prof)
                 {
@@ -145,11 +216,11 @@ namespace ircomm
                         {
                             var auth = new NickServAuthService(_irc);
                             var ok = await auth.IdentifyAsync(prof.Password, TimeSpan.FromSeconds(8));
-                            AddChatLine(ok ? "NickServ: identified successfully." : "NickServ: identify failed or timed out.");
+                            AddChatLine(ok ? "NickServ: identified successfully." : "NickServ: identify failed or timed out.", _currentServerPseudo);
                         }
                         catch
                         {
-                            AddChatLine("NickServ: identify attempt failed.");
+                            AddChatLine("NickServ: identify attempt failed.", _currentServerPseudo);
                         }
                     }
                 }
@@ -161,6 +232,8 @@ namespace ircomm
                 AddChatLine("Disconnected.");
                 _users.Clear();
                 SetStatus("Disconnected.", false);
+
+                _userStore.Clear();
             });
         }
 
@@ -169,7 +242,6 @@ namespace ircomm
             if (ProfileComboBox.SelectedItem is Profile profile)
             {
                 ConnectButton.ToolTip = profile.Name;
-
 
                 _channels.Clear();
                 if (profile.Channels != null)
@@ -193,7 +265,6 @@ namespace ircomm
                 await ConnectToAsync(win.ResultProfile);
             }
         }
-
 
         private async Task ConnectToAsync(Profile profile)
         {
@@ -223,6 +294,10 @@ namespace ircomm
 
             _currentNick = profile.Username;
 
+
+            _currentServerPseudo = $"{profile.Server}:{profile.Port}";
+            EnsureMessageStore(_currentServerPseudo);
+
             Profile? selectedProfile = ProfileComboBox.SelectedItem as Profile;
             bool willHandleAuthInConnected = ReferenceEquals(selectedProfile, profile);
 
@@ -230,7 +305,7 @@ namespace ircomm
             {
                 ConnectButton.IsEnabled = false;
                 SetStatus($"Connecting to {profile.Server}:{profile.Port}...", true);
-                AddChatLine($"Connecting to {profile.Server}:{profile.Port}...");
+                AddChatLine($"Connecting to {profile.Server}:{profile.Port}...", _currentServerPseudo);
                 await _irc.ConnectAsync(profile.Server ?? string.Empty, profile.Port, profile.Username ?? string.Empty);
 
 
@@ -240,17 +315,17 @@ namespace ircomm
                     {
                         var auth = new NickServAuthService(_irc);
                         var ok = await auth.IdentifyAsync(profile.Password, TimeSpan.FromSeconds(8));
-                        AddChatLine(ok ? "NickServ: identified successfully." : "NickServ: identify failed or timed out.");
+                        AddChatLine(ok ? "NickServ: identified successfully." : "NickServ: identify failed or timed out.", _currentServerPseudo);
                     }
                     catch
                     {
-                        AddChatLine("NickServ: identify attempt failed.");
+                        AddChatLine("NickServ: identify attempt failed.", _currentServerPseudo);
                     }
                 }
             }
             catch (Exception ex)
             {
-                AddChatLine($"Connection failed: {ex.Message}");
+                AddChatLine($"Connection failed: {ex.Message}", _currentServerPseudo);
                 SetStatus($"Connection failed: {ex.Message}", false);
                 await DisconnectAsync();
             }
@@ -375,7 +450,7 @@ namespace ircomm
             }
 
             await _irc.SendRawAsync($"PRIVMSG {targetChannel} :{text}");
-            AddChatLine($"[{targetChannel}] <{_currentNick}> {text}");
+            AddChatLine($"[{targetChannel}] <{_currentNick}> {text}", targetChannel);
             MessageTextBox.Clear();
         }
 
@@ -383,9 +458,10 @@ namespace ircomm
         {
             if (ChannelsListBox.SelectedItem is string channel)
             {
-                ChannelTitle.Text = channel;
+
+                SwitchToChannel(channel);
                 _users.Clear();
-                AddChatLine($"Switched to {channel}");
+
                 _ = _irc.SendRawAsync($"NAMES {channel}");
             }
         }
@@ -451,15 +527,93 @@ namespace ircomm
             return result == true ? textBox.Text : null;
         }
 
-        private void AddChatLine(string line)
+
+        private void RouteIncomingLine(string line)
+        {
+
+            if (line.StartsWith("<- "))
+            {
+                var raw = line.Substring(3);
+
+                var rest = raw;
+                string prefix = string.Empty;
+                if (rest.StartsWith(":"))
+                {
+                    var idx = rest.IndexOf(' ');
+                    if (idx > 0)
+                    {
+                        prefix = rest.Substring(1, idx - 1);
+                        rest = rest.Substring(idx + 1);
+                    }
+                }
+
+                var firstSpace = rest.IndexOf(' ');
+                var command = firstSpace > 0 ? rest.Substring(0, firstSpace) : rest;
+                var parameters = firstSpace > 0 ? rest.Substring(firstSpace + 1) : string.Empty;
+
+                if (int.TryParse(command, out var numeric))
+                {
+                    var serverKey = _currentServerPseudo ?? prefix;
+                    AddChatLine(raw, serverKey);
+                    return;
+                }
+
+                AddChatLine(raw, _currentServerPseudo);
+                return;
+            }
+
+            if (line.StartsWith("-> "))
+            {
+                var rawOut = line.Substring(3);
+                AddChatLine(rawOut);
+                return;
+            }
+
+            var m = Regex.Match(line, @"^\[(?<target>[^\]]+)\]\s*(?<rest>.*)$");
+            if (m.Success)
+            {
+                var target = m.Groups["target"].Value;
+                AddChatLine(line, target);
+                return;
+            }
+
+            AddChatLine(line);
+        }
+
+        private void EnsureMessageStore(string channel)
+        {
+            if (string.IsNullOrEmpty(channel)) return;
+            if (!_messageStore.ContainsKey(channel))
+                _messageStore[channel] = new List<string>();
+        }
+
+        private void EnsureUserStore(string channel)
+        {
+            if (string.IsNullOrEmpty(channel)) return;
+            if (!_userStore.ContainsKey(channel))
+                _userStore[channel] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private void AddChatLine(string line, string? channel = null)
         {
             var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
             var entry = $"[{timestamp}] {line}";
 
-            _chatLines.Add(entry);
-            if (ChatListBox.Items.Count > 0)
-                ChatListBox.ScrollIntoView(ChatListBox.Items[ChatListBox.Items.Count - 1]);
+            string target = channel ?? ChannelsListBox.SelectedItem as string ?? ChannelTitle.Text;
+            if (string.IsNullOrEmpty(target))
+                target = _currentServerPseudo ?? "System";
 
+            EnsureMessageStore(target);
+            _messageStore[target].Add(entry);
+
+            var shownChannel = ChannelTitle.Text;
+            if (string.Equals(shownChannel, target, StringComparison.OrdinalIgnoreCase) ||
+                (string.IsNullOrEmpty(shownChannel) && string.Equals(_currentServerPseudo, target, StringComparison.OrdinalIgnoreCase)))
+            {
+                _chatLines.Add(entry);
+                if (ChatListBox.Items.Count > 0)
+                    ChatListBox.ScrollIntoView(ChatListBox.Items[ChatListBox.Items.Count - 1]);
+            }
 
             try
             {
@@ -476,6 +630,41 @@ namespace ircomm
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to auto-save chat line: {ex.Message}");
+            }
+        }
+
+
+        private void SwitchToChannel(string channel)
+        {
+            if (string.IsNullOrEmpty(channel)) return;
+
+            ChannelTitle.Text = channel;
+
+            if (ChannelsListBox.Items.Contains(channel))
+                ChannelsListBox.SelectedItem = channel;
+
+            _users.Clear();
+            _chatLines.Clear();
+
+            EnsureMessageStore(channel);
+            foreach (var msg in _messageStore[channel])
+                _chatLines.Add(msg);
+
+
+            EnsureUserStore(channel);
+            var set = _userStore[channel];
+            foreach (var n in set.OrderBy(x => x))
+                _users.Add(n);
+
+            if (ChatListBox.Items.Count > 0)
+                ChatListBox.ScrollIntoView(ChatListBox.Items[ChatListBox.Items.Count - 1]);
+        }
+
+        private void ChannelsListBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (ChannelsListBox.SelectedItem is string channel)
+            {
+                SwitchToChannel(channel);
             }
         }
 
@@ -509,7 +698,6 @@ namespace ircomm
         {
             var win = new PreferencesWindow { Owner = this };
             win.ShowDialog();
-
 
             _settings = SettingsStore.LoadSettings() ?? new Settings();
             if (string.IsNullOrWhiteSpace(_settings.AutoSaveFile))
@@ -553,6 +741,7 @@ namespace ircomm
 
             var res = MessageBox.Show(this, "Clear chat history?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (res != MessageBoxResult.Yes) return;
+
 
             _chatLines.Clear();
         }
