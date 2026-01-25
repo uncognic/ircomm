@@ -23,8 +23,7 @@
             <TextBlock Margin="80,4,0,0"
                        Text="Warning: Password is stored in plaintext in profiles.json"
                        FontSize="11"
-                       FontStyle="Italic"
-                       Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
+                       FontStyle="Italic"/>
         </StackPanel>
 
         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
