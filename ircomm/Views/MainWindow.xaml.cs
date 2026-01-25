@@ -34,6 +34,9 @@ namespace ircomm
 
         private Settings _settings = new();
 
+
+        private bool _awaitingUserMode = false;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -41,6 +44,10 @@ namespace ircomm
             ChannelsListBox.ItemsSource = _channels;
             ChatListBox.ItemsSource = _chatLines;
             UsersListBox.ItemsSource = _users;
+
+
+            _users.CollectionChanged += (_, __) => Dispatcher.Invoke(UpdateUsersTitle);
+            UpdateUsersTitle();
 
             ProfileComboBox.ItemsSource = _profiles;
             ProfileComboBox.SelectionChanged += ProfileComboBox_SelectionChanged;
@@ -160,6 +167,7 @@ namespace ircomm
                     {
                         if (kv.Value.Remove(oldNick))
                         {
+
                             kv.Value.Add(newNick);
                         }
                     }
@@ -181,7 +189,8 @@ namespace ircomm
                 ConnectButton.Content = "Disconnect";
                 AddChatLine("Connected.");
 
-                SetStatus("Connected.", false);
+              
+                SetStatus("Connected (waiting for server acknowledgement)...", true);
 
                 if (!string.IsNullOrEmpty(_currentServerPseudo))
                 {
@@ -234,6 +243,8 @@ namespace ircomm
                 SetStatus("Disconnected.", false);
 
                 _userStore.Clear();
+
+                _awaitingUserMode = false;
             });
         }
 
@@ -304,6 +315,10 @@ namespace ircomm
             try
             {
                 ConnectButton.IsEnabled = false;
+
+
+                _awaitingUserMode = true;
+
                 SetStatus($"Connecting to {profile.Server}:{profile.Port}...", true);
                 AddChatLine($"Connecting to {profile.Server}:{profile.Port}...", _currentServerPseudo);
                 await _irc.ConnectAsync(profile.Server ?? string.Empty, profile.Port, profile.Username ?? string.Empty);
@@ -327,6 +342,7 @@ namespace ircomm
             {
                 AddChatLine($"Connection failed: {ex.Message}", _currentServerPseudo);
                 SetStatus($"Connection failed: {ex.Message}", false);
+                _awaitingUserMode = false;
                 await DisconnectAsync();
             }
             finally
@@ -385,6 +401,8 @@ namespace ircomm
                     _users.Clear();
                     SetStatus("Disconnected.", false);
                 });
+
+                _awaitingUserMode = false;
             }
         }
 
@@ -551,11 +569,35 @@ namespace ircomm
                 var command = firstSpace > 0 ? rest.Substring(0, firstSpace) : rest;
                 var parameters = firstSpace > 0 ? rest.Substring(firstSpace + 1) : string.Empty;
 
+
                 if (int.TryParse(command, out var numeric))
                 {
                     var serverKey = _currentServerPseudo ?? prefix;
                     AddChatLine(raw, serverKey);
+
+                  
+                    if (_awaitingUserMode && (numeric == 1 || numeric == 4 || numeric == 5))
+                    {
+                        FinishHandshake($"numeric {numeric}");
+                    }
+
                     return;
+                }
+
+
+                if (_awaitingUserMode && string.Equals(command, "MODE", StringComparison.OrdinalIgnoreCase))
+                {
+                    var tokens = parameters.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (tokens.Length > 0)
+                    {
+                        var target = tokens[0];
+                        if (!string.IsNullOrEmpty(_currentNick) && string.Equals(target, _currentNick, StringComparison.OrdinalIgnoreCase))
+                        {
+                            AddChatLine(raw, _currentServerPseudo);
+                            FinishHandshake("MODE");
+                            return;
+                        }
+                    }
                 }
 
                 AddChatLine(raw, _currentServerPseudo);
@@ -578,6 +620,19 @@ namespace ircomm
             }
 
             AddChatLine(line);
+        }
+
+
+        private void FinishHandshake(string? reason = null)
+        {
+            if (!_awaitingUserMode) return;
+            _awaitingUserMode = false;
+
+ 
+            if (!string.IsNullOrEmpty(reason))
+                AddChatLine($"Server handshake finished ({reason}).", _currentServerPseudo);
+
+            SetStatus("Connected.", false);
         }
 
         private void EnsureMessageStore(string channel)
@@ -794,5 +849,10 @@ namespace ircomm
             DisconnectAsync();
         }
 
+
+        private void UpdateUsersTitle()
+        {
+            UsersTitle.Text = $"Users ({_users.Count})";
+        }
     }
 }
