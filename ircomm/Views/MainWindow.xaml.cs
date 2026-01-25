@@ -163,6 +163,12 @@ namespace ircomm
 
                 if (!string.IsNullOrWhiteSpace(oldNick) && !string.IsNullOrWhiteSpace(newNick))
                 {
+
+                    if (string.Equals(_currentNick, oldNick, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _currentNick = newNick;
+                    }
+
                     foreach (var kv in _userStore)
                     {
                         if (kv.Value.Remove(oldNick))
@@ -189,7 +195,7 @@ namespace ircomm
                 ConnectButton.Content = "Disconnect";
                 AddChatLine("Connected.");
 
-              
+
                 SetStatus("Connected (waiting for server acknowledgement)...", true);
 
                 if (!string.IsNullOrEmpty(_currentServerPseudo))
@@ -575,7 +581,7 @@ namespace ircomm
                     var serverKey = _currentServerPseudo ?? prefix;
                     AddChatLine(raw, serverKey);
 
-                  
+
                     if (_awaitingUserMode && (numeric == 1 || numeric == 4 || numeric == 5))
                     {
                         FinishHandshake($"numeric {numeric}");
@@ -628,7 +634,7 @@ namespace ircomm
             if (!_awaitingUserMode) return;
             _awaitingUserMode = false;
 
- 
+
             if (!string.IsNullOrEmpty(reason))
                 AddChatLine($"Server handshake finished ({reason}).", _currentServerPseudo);
 

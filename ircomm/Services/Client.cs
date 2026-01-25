@@ -30,8 +30,13 @@ namespace ircomm.Services
         private readonly byte[] _readBuffer = new byte[ReadBufferSize];
         private readonly StringBuilder _receiveBuffer = new();
 
-
         private readonly Dictionary<string, List<string>> _pendingNames = new(StringComparer.OrdinalIgnoreCase);
+
+
+        private readonly HashSet<string> _serverCapabilities = new(StringComparer.OrdinalIgnoreCase);
+        private TaskCompletionSource<bool>? _capTcs;
+        private bool _capRequested = false;
+        private readonly string[] _desiredCapabilities = new[] { "multi-prefix", "extended-join", "account-notify", "away-notify", "identify-msg" };
 
         public bool IsConnected => _tcp?.Connected ?? false;
 
@@ -97,6 +102,17 @@ namespace ircomm.Services
                 _listenTask = Task.Run(() => ListenLoopAsync(_cts.Token));
 
 
+                _capTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _serverCapabilities.Clear();
+                _capRequested = false;
+                await SendRawAsync("CAP LS").ConfigureAwait(false);
+
+                var capCompleted = await Task.WhenAny(_capTcs.Task, Task.Delay(3000)).ConfigureAwait(false);
+                if (capCompleted != _capTcs.Task)
+                {
+                    _ = SendRawAsync("CAP END");
+                    try { _capTcs.TrySetResult(false); } catch { }
+                }
                 await SendRawAsync($"NICK {_nick}").ConfigureAwait(false);
                 await SendRawAsync($"USER {_nick} 0 * :{_nick}").ConfigureAwait(false);
 
@@ -175,10 +191,30 @@ namespace ircomm.Services
         public Task JoinAsync(string channel) => SendRawAsync($"JOIN {channel}");
         public Task PartAsync(string channel, string? reason = null) => SendRawAsync(reason == null ? $"PART {channel}" : $"PART {channel} :{reason}");
         public Task SendMessageAsync(string target, string message) => SendRawAsync($"PRIVMSG {target} :{message}");
-        public Task ChangeNickAsync(string newNick)
+
+        public async Task ChangeNickAsync(string newNick)
         {
-            _nick = newNick;
-            return SendRawAsync($"NICK {newNick}");
+            if (string.IsNullOrWhiteSpace(newNick)) throw new ArgumentNullException(nameof(newNick));
+
+            string? oldNick;
+            lock (_stateLock)
+            {
+                oldNick = _nick;
+                _nick = newNick;
+            }
+
+            try
+            {
+                await SendRawAsync($"NICK {newNick}").ConfigureAwait(false);
+            }
+            finally
+            {
+                try
+                {
+                    PostEvent(() => NickChanged?.Invoke(oldNick ?? string.Empty, newNick));
+                }
+                catch { }
+            }
         }
 
         private async Task ListenLoopAsync(CancellationToken ct)
@@ -358,6 +394,82 @@ namespace ircomm.Services
                 return;
             }
 
+
+            if (string.Equals(command, "CAP", StringComparison.OrdinalIgnoreCase))
+            {
+
+
+
+                var parts = parameters.Split(' ', 3, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 2)
+                {
+                    var senderOrStar = parts[0];
+                    var sub = parts[1].ToUpperInvariant();
+                    var restCaps = parts.Length >= 3 ? parts[2] : string.Empty;
+                    if (restCaps.StartsWith(":")) restCaps = restCaps.Substring(1);
+
+                    if (sub == "LS")
+                    {
+
+                        var offered = restCaps.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        lock (_stateLock)
+                        {
+                            foreach (var c in offered) _serverCapabilities.Add(c);
+                        }
+
+                        if (!_capRequested)
+                        {
+                            List<string> toRequest;
+                            lock (_stateLock)
+                            {
+                                toRequest = _serverCapabilities.Intersect(_desiredCapabilities, StringComparer.OrdinalIgnoreCase).ToList();
+                            }
+
+                            if (toRequest.Count > 0)
+                            {
+                                _capRequested = true;
+                                _ = SendRawAsync($"CAP REQ :{string.Join(' ', toRequest)}");
+
+                            }
+                            else
+                            {
+
+                                _ = SendRawAsync("CAP END");
+                                try { _capTcs?.TrySetResult(false); } catch { }
+                            }
+                        }
+
+                        return;
+                    }
+
+                    if (sub == "ACK")
+                    {
+
+                        var acked = restCaps.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        lock (_stateLock)
+                        {
+                            foreach (var c in acked) _serverCapabilities.Add(c);
+                        }
+
+
+                        _ = SendRawAsync("CAP END");
+                        try { _capTcs?.TrySetResult(true); } catch { }
+
+                        return;
+                    }
+
+                    if (sub == "NAK")
+                    {
+
+                        _ = SendRawAsync("CAP END");
+                        try { _capTcs?.TrySetResult(false); } catch { }
+
+                        return;
+                    }
+                }
+
+            }
+
             if (string.Equals(command, "PRIVMSG", StringComparison.OrdinalIgnoreCase))
             {
                 var targetEnd = parameters.IndexOf(" :");
@@ -375,18 +487,37 @@ namespace ircomm.Services
 
             if (string.Equals(command, "JOIN", StringComparison.OrdinalIgnoreCase))
             {
-                var channel = parameters.Trim();
-                if (channel.StartsWith(":")) channel = channel.Substring(1);
+
+                var channel = string.Empty;
+                var tokens = parameters.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (tokens.Length > 0)
+                {
+                    foreach (var tok in tokens)
+                    {
+                        var t = tok;
+                        if (t.StartsWith(":")) t = t.Substring(1);
+                        if (t.Length > 0 && (t[0] == '#' || t[0] == '&' || t[0] == '+' || t[0] == '!'))
+                        {
+                            channel = t;
+                            break;
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(channel))
+                    {
+
+                        channel = tokens[0].TrimStart(':');
+                    }
+                }
+
                 var nick = prefix.Split('!')[0];
                 if (nick == _nick)
                 {
                     PostEvent(() => ChannelAdded?.Invoke(channel));
-    
                 }
                 else
                 {
                     PostEvent(() => UserJoined?.Invoke(channel, nick));
-
                 }
                 return;
             }
@@ -398,6 +529,7 @@ namespace ircomm.Services
                 PostEvent(() => UserLeft?.Invoke(channel, nick));
 
                 return;
+
             }
 
             if (string.Equals(command, "NICK", StringComparison.OrdinalIgnoreCase))
