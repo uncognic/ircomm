@@ -113,10 +113,10 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="CHANNELS" Style="{StaticResource PanelHeader}" VerticalAlignment="Center" />
                             <Button x:Name="AddChannelButton" 
-                                    Content="+" 
+                                    Content="Join" 
                                     ToolTip="Join Channel"
-                                    Width="20" Height="20"
-                                    FontSize="12" FontWeight="Bold"
+                                    Width="50" Height="20"
+                                    FontSize="12"
                                     Grid.Column="1" />
                         </Grid>
                     </Border>
@@ -150,14 +150,13 @@
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0" 
-                            Padding="8,6" 
+                            Padding="2" 
                             Background="{DynamicResource AltControlBrush}"
                             BorderBrush="{DynamicResource BorderBrush}" 
-                            BorderThickness="0,0,0,1">
+                            BorderThickness="0,0,0,0">
                         <TextBlock x:Name="ChannelTitle" 
-                                   Text="channelname" 
-                                   FontSize="13" FontWeight="SemiBold"
-                                   VerticalAlignment="Center" />
+                                   Text="CHANNEL NAME" 
+                                   Style="{StaticResource PanelHeader}" />
                     </Border>
 
                     <ListBox x:Name="ChatListBox" 
@@ -237,8 +236,7 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Ellipse Width="7" Height="7" Fill="#FF666666" Margin="0,0,6,0" 
-                             x:Name="StatusIndicator" />
+
                     <TextBlock x:Name="StatusTextBlock" 
                                Text="Disconnected" 
                                FontSize="11"

@@ -699,7 +699,7 @@ namespace ircomm
         {
             if (string.IsNullOrEmpty(channel)) return;
 
-            ChannelTitle.Text = channel;
+            ChannelTitle.Text = channel.ToUpper();
 
             if (ChannelsListBox.Items.Contains(channel))
                 ChannelsListBox.SelectedItem = channel;
@@ -850,15 +850,15 @@ namespace ircomm
             ProfileStore.SaveProfiles(_profiles);
         }
 
-        private void DisconnectMenuItem_Click(object sender, RoutedEventArgs e)
+        private async void DisconnectMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            DisconnectAsync();
+            await DisconnectAsync();
         }
 
 
         private void UpdateUsersTitle()
         {
-            UsersTitle.Text = $"Users ({_users.Count})";
+            UsersTitle.Text = $"USERS ({_users.Count})";
         }
     }
 }
