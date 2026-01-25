@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ircomm"
+        xmlns:services="clr-namespace:ircomm.Services"
         mc:Ignorable="d"
         Title="ircomm IRC Client" Height="500" Width="900"
         MinHeight="400" MinWidth="650"
@@ -11,6 +12,7 @@
     
     <Window.Resources>
         <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+
             <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Style.Triggers>
@@ -164,7 +166,14 @@
                              Margin="4"
                              Padding="2"
                              BorderThickness="1"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock TextWrapping="Wrap" Margin="2,1"
+                                           services:Linkify.Text="{Binding}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
 
                     <Border Grid.Row="2" 
                             Padding="6" 
