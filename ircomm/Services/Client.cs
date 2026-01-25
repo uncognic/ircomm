@@ -7,9 +7,12 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace ircomm.Services
 {
+
 
     public class Client : IDisposable
     {
@@ -27,13 +30,17 @@ namespace ircomm.Services
         private readonly byte[] _readBuffer = new byte[ReadBufferSize];
         private readonly StringBuilder _receiveBuffer = new();
 
+
+        private readonly Dictionary<string, List<string>> _pendingNames = new(StringComparer.OrdinalIgnoreCase);
+
         public bool IsConnected => _tcp?.Connected ?? false;
 
         public event Action<string>? ChatLine;
         public event Action? Connected;
         public event Action? Disconnected;
         public event Action<string>? ChannelAdded;
-        public event Action<string[]?>? NamesReceived;
+
+        public event Action<string, string[]?>? NamesReceived;
         public event Action<string, string>? UserJoined;
         public event Action<string, string>? UserLeft;
         public event Action<string, string>? NickChanged;
@@ -296,9 +303,58 @@ namespace ircomm.Services
                     {
                         var namesPart = parameters.Substring(trailingIndex + 2);
                         var names = namesPart.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                        PostEvent(() => NamesReceived?.Invoke(names));
+
+                        var pre = parameters.Substring(0, trailingIndex).Trim();
+                        var preParts = pre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        var channel = preParts.Length > 0 ? preParts[preParts.Length - 1] : string.Empty;
+
+                        lock (_stateLock)
+                        {
+                            if (!_pendingNames.TryGetValue(channel, out var list))
+                            {
+                                list = new List<string>();
+                                _pendingNames[channel] = list;
+                            }
+                            foreach (var n in names) list.Add(n);
+                        }
                     }
+                    return;
                 }
+
+                if (numeric == 366)
+                {
+                    var trailingIndex = parameters.IndexOf(" :");
+                    var channel = string.Empty;
+                    if (trailingIndex >= 0)
+                    {
+                        var pre = parameters.Substring(0, trailingIndex).Trim();
+                        var preParts = pre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        channel = preParts.Length > 0 ? preParts[preParts.Length - 1] : string.Empty;
+                    }
+                    else
+                    {
+                        var parts = parameters.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length >= 2) channel = parts[1];
+                    }
+
+                    string[] namesArray;
+                    lock (_stateLock)
+                    {
+                        if (_pendingNames.TryGetValue(channel, out var list))
+                        {
+                            namesArray = list.ToArray();
+                            _pendingNames.Remove(channel);
+                        }
+                        else
+                        {
+                            namesArray = Array.Empty<string>();
+                        }
+                    }
+
+                    PostEvent(() => NamesReceived?.Invoke(channel, namesArray));
+                    return;
+                }
+
                 return;
             }
 
@@ -325,12 +381,12 @@ namespace ircomm.Services
                 if (nick == _nick)
                 {
                     PostEvent(() => ChannelAdded?.Invoke(channel));
-                    PostEvent(() => ChatLine?.Invoke($"You joined {channel}"));
+    
                 }
                 else
                 {
                     PostEvent(() => UserJoined?.Invoke(channel, nick));
-                    PostEvent(() => ChatLine?.Invoke($"{nick} joined {channel}"));
+
                 }
                 return;
             }
@@ -340,7 +396,7 @@ namespace ircomm.Services
                 var channel = parameters.Split(' ')[0].Trim();
                 var nick = prefix.Split('!')[0];
                 PostEvent(() => UserLeft?.Invoke(channel, nick));
-                PostEvent(() => ChatLine?.Invoke($"{nick} left {channel}"));
+
                 return;
             }
 
@@ -351,7 +407,7 @@ namespace ircomm.Services
                 var oldNick = prefix.Split('!')[0];
                 if (oldNick == _nick) _nick = newNick;
                 PostEvent(() => NickChanged?.Invoke(oldNick, newNick));
-                PostEvent(() => ChatLine?.Invoke($"{oldNick} is now known as {newNick}"));
+
                 return;
             }
         }
