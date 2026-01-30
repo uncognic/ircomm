@@ -474,7 +474,7 @@ namespace ircomm
             }
 
             await _irc.SendRawAsync($"PRIVMSG {targetChannel} :{text}");
-            AddChatLine($"[{targetChannel}] <{_currentNick}> {text}", targetChannel);
+
             MessageTextBox.Clear();
         }
 
@@ -613,6 +613,18 @@ namespace ircomm
             if (line.StartsWith("-> "))
             {
                 var rawOut = line.Substring(3);
+
+  
+                var mOut = Regex.Match(rawOut, @"^PRIVMSG\s+(?<target>\S+)\s+:(?<msg>.*)$", RegexOptions.IgnoreCase);
+                if (mOut.Success)
+                {
+                    var target = mOut.Groups["target"].Value;
+                    var msg = mOut.Groups["msg"].Value;
+                    var formatted = $"[{target}] <{_currentNick}> {msg}";
+                    AddChatLine(formatted, target);
+                    return;
+                }
+
                 AddChatLine(rawOut);
                 return;
             }
