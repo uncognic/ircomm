@@ -51,7 +51,7 @@ namespace ircomm.Services
         public event Action<string, string>? NickChanged;
 
 
-        public async Task ConnectAsync(string server, int port, string nick)
+        public async Task ConnectAsync(string server, int port, string nick, string? connectPassword = null, bool useSsl = false)
         {
             if (IsConnected)
                 throw new InvalidOperationException("Already connected.");
@@ -75,7 +75,7 @@ namespace ircomm.Services
 
                 var netStream = _tcp.GetStream();
 
-                if (port == 6697)
+                if (useSsl || port == 6697)
                 {
                     var ssl = new SslStream(netStream, false, (sender, certificate, chain, errors) =>
                     {
@@ -101,6 +101,17 @@ namespace ircomm.Services
 
                 _listenTask = Task.Run(() => ListenLoopAsync(_cts.Token));
 
+                if (!string.IsNullOrEmpty(connectPassword))
+                {
+                    try
+                    {
+                        await SendRawAsync($"PASS {connectPassword}").ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        PostEvent(() => ChatLine?.Invoke($"PASS send failed: {ex.Message}"));
+                    }
+                }
 
                 _capTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 _serverCapabilities.Clear();

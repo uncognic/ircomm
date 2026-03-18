@@ -48,7 +48,12 @@ namespace ircomm
                 Server = server,
                 Port = port,
                 Username = username,
-                Password = password
+                Password = password,
+                IsBouncer = IsBouncerCheckBox.IsChecked == true,
+                BouncerUsername = BouncerUsernameTextBox.Text?.Trim(),
+                BouncerPassword = BouncerPasswordBox.Password?.Trim(),
+                BouncerNetwork = BouncerNetworkTextBox.Text?.Trim(),
+                UseSsl = UseSslCheckBox.IsChecked == true
             };
 
             DialogResult = true;

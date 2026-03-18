@@ -327,7 +327,23 @@ namespace ircomm
 
                 SetStatus($"Connecting to {profile.Server}:{profile.Port}...", true);
                 AddChatLine($"Connecting to {profile.Server}:{profile.Port}...", _currentServerPseudo);
-                await _irc.ConnectAsync(profile.Server ?? string.Empty, profile.Port, profile.Username ?? string.Empty);
+                string? connectPassword = null;
+                if (profile.IsBouncer && !string.IsNullOrEmpty(profile.BouncerPassword))
+                {
+                    var userPart = profile.BouncerUsername ?? string.Empty;
+                    if (!string.IsNullOrEmpty(profile.BouncerNetwork))
+                    {
+                        if (!string.IsNullOrEmpty(userPart)) userPart = userPart + "/" + profile.BouncerNetwork;
+                        else userPart = "/" + profile.BouncerNetwork;
+                    }
+
+                    if (!string.IsNullOrEmpty(userPart))
+                        connectPassword = $"{userPart}:{profile.BouncerPassword}";
+                    else
+                        connectPassword = profile.BouncerPassword;
+                }
+
+                await _irc.ConnectAsync(profile.Server ?? string.Empty, profile.Port, profile.Username ?? string.Empty, connectPassword, profile.UseSsl);
 
 
                 if (!willHandleAuthInConnected && !string.IsNullOrEmpty(profile.Password))

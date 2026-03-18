@@ -28,6 +28,11 @@ namespace ircomm
             PortTextBox.Text = existing.Port.ToString();
             UsernameTextBox.Text = existing.Username ?? string.Empty;
             PasswordBox.Password = existing.Password ?? string.Empty;
+            IsBouncerCheckBox.IsChecked = existing.IsBouncer;
+            BouncerUsernameTextBox.Text = existing.BouncerUsername ?? string.Empty;
+            BouncerPasswordBox.Password = existing.BouncerPassword ?? string.Empty;
+            BouncerNetworkTextBox.Text = existing.BouncerNetwork ?? string.Empty;
+            UseSslCheckBox.IsChecked = existing.UseSsl;
         }
 
         private void OkButton_Click(object sender, RoutedEventArgs e)
@@ -67,6 +72,11 @@ namespace ircomm
                 Port = port,
                 Username = username,
                 Password = password,
+                IsBouncer = IsBouncerCheckBox.IsChecked == true,
+                BouncerUsername = BouncerUsernameTextBox.Text?.Trim(),
+                BouncerPassword = BouncerPasswordBox.Password?.Trim(),
+                BouncerNetwork = BouncerNetworkTextBox.Text?.Trim(),
+                UseSsl = UseSslCheckBox.IsChecked == true,
                 Channels = _existingProfile != null && _existingProfile.Channels != null ? new List<string>(_existingProfile.Channels) : new List<string>()
             };
 
